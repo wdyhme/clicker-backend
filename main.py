@@ -1,4 +1,4 @@
-# === main.py (PostgreSQL version with logs) ===
+# === main.py (PostgreSQL version with fix for user_id type) ===
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
@@ -31,7 +31,7 @@ init_db()
 
 @app.route("/get_data", methods=["GET"])
 def get_data():
-    user_id = request.args.get("user_id")
+    user_id = str(request.args.get("user_id"))
     username = request.args.get("username")
     if not user_id:
         return jsonify({})
@@ -74,7 +74,7 @@ def get_data():
 @app.route("/save_data", methods=["POST"])
 def save_data():
     req = request.get_json()
-    user_id = req.get("user_id")
+    user_id = str(req.get("user_id"))  # ← Fix here
     data = req.get("data")
 
     print("=== /save_data called ===")
