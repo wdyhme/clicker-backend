@@ -1,4 +1,4 @@
-# === main.py (PostgreSQL version) ===
+# === main.py (PostgreSQL version with logs) ===
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
@@ -8,11 +8,9 @@ import json
 app = Flask(__name__)
 CORS(app)
 
-# === Подключение к PostgreSQL через DATABASE_URL ===
 DATABASE_URL = os.environ.get("DATABASE_URL")
-
 if not DATABASE_URL:
-    raise Exception("DATABASE_URL not set in environment variables")
+    raise Exception("DATABASE_URL not set")
 
 # === Инициализация таблицы ===
 def init_db():
@@ -31,7 +29,6 @@ def init_db():
 
 init_db()
 
-# === Получение данных пользователя ===
 @app.route("/get_data", methods=["GET"])
 def get_data():
     user_id = request.args.get("user_id")
@@ -71,16 +68,25 @@ def get_data():
 
     cur.close()
     conn.close()
+    print(f"✅ get_data returned for user_id={user_id}")
     return jsonify(data)
 
-# === Сохранение данных пользователя ===
 @app.route("/save_data", methods=["POST"])
 def save_data():
     req = request.get_json()
     user_id = req.get("user_id")
     data = req.get("data")
+
+    print("=== /save_data called ===")
+    print("user_id:", user_id)
+    print("data:", data)
+
     if not user_id or not data:
         return jsonify({"error": "Missing user_id or data"}), 400
+
+    if not isinstance(data, dict):
+        print("❌ data is not a dict")
+        return jsonify({"error": "Invalid data format"}), 400
 
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
@@ -97,9 +103,9 @@ def save_data():
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"status": "ok"})
+    print(f"✅ Data saved for user_id={user_id}")
+    return jsonify({"status": "ok", "saved_data": data})
 
-# === Топ игроков ===
 @app.route("/get_top_players", methods=["GET"])
 def get_top_players():
     conn = psycopg2.connect(DATABASE_URL)
@@ -120,7 +126,6 @@ def get_top_players():
     result.sort(key=lambda x: -x["totalEarned"])
     return jsonify(result[:20])
 
-# === Глобальная статистика ===
 @app.route("/get_global_stats", methods=["GET"])
 def get_global_stats():
     conn = psycopg2.connect(DATABASE_URL)
@@ -157,7 +162,6 @@ def get_global_stats():
 
     return jsonify(stats)
 
-# === Запуск ===
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
