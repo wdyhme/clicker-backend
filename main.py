@@ -50,9 +50,6 @@ def get_data():
     if not user_id:
         return jsonify({"error": "Missing user_id"}), 400
 
-    if user_id == "debug":
-        return jsonify({})  # Не сохраняем debug_user
-
     all_data = load_all()
     user = all_data.get(user_id, {})
     user = ensure_user_structure(user, username)
@@ -71,9 +68,6 @@ def save_data():
 
     if not user_id or not isinstance(data, dict):
         return jsonify({"error": "Invalid payload"}), 400
-
-    if user_id == "debug":
-        return jsonify({"success": True})
 
     all_data = load_all()
     user = all_data.get(user_id, {})
@@ -101,8 +95,7 @@ def save_data():
 @app.route("/get_top_players")
 def get_top_players():
     all_data = load_all()
-    filtered = {uid: u for uid, u in all_data.items() if uid != "debug"}
-    sorted_users = sorted(filtered.items(), key=lambda x: x[1].get("totalEarned", 0), reverse=True)
+    sorted_users = sorted(all_data.items(), key=lambda x: x[1].get("totalEarned", 0), reverse=True)
     return jsonify([
         {
             "nickname": u.get("nickname", ""),
@@ -114,22 +107,21 @@ def get_top_players():
 @app.route("/get_global_stats")
 def get_global_stats():
     all_data = load_all()
-    filtered = {uid: u for uid, u in all_data.items() if uid != "debug"}
     return jsonify({
-        "totalEarned": sum(u.get("totalEarned", 0) for u in filtered.values()),
-        "totalClicks": sum(u.get("totalClicks", 0) for u in filtered.values()),
-        "clickUpgrades": sum(u.get("upgrades", {}).get("click", 0) for u in filtered.values()),
-        "passiveUpgrades": sum(u.get("upgrades", {}).get("passive", 0) for u in filtered.values()),
-        "users": len(filtered),
+        "totalEarned": sum(u.get("totalEarned", 0) for u in all_data.values()),
+        "totalClicks": sum(u.get("totalClicks", 0) for u in all_data.values()),
+        "clickUpgrades": sum(u.get("upgrades", {}).get("click", 0) for u in all_data.values()),
+        "passiveUpgrades": sum(u.get("upgrades", {}).get("passive", 0) for u in all_data.values()),
+        "users": len(all_data),
         "ads": {
-            "interstitialToday": sum(u.get("ads_watched", {}).get("interstitialToday", 0) for u in filtered.values()),
-            "interstitialTotal": sum(u.get("ads_watched", {}).get("interstitialTotal", 0) for u in filtered.values()),
-            "popupToday": sum(u.get("ads_watched", {}).get("popupToday", 0) for u in filtered.values()),
-            "popupTotal": sum(u.get("ads_watched", {}).get("popupTotal", 0) for u in filtered.values()),
-            "inAppToday": sum(u.get("ads_watched", {}).get("inAppToday", 0) for u in filtered.values()),
-            "inAppTotal": sum(u.get("ads_watched", {}).get("inAppTotal", 0) for u in filtered.values())
+            "interstitialToday": sum(u.get("ads_watched", {}).get("interstitialToday", 0) for u in all_data.values()),
+            "interstitialTotal": sum(u.get("ads_watched", {}).get("interstitialTotal", 0) for u in all_data.values()),
+            "popupToday": sum(u.get("ads_watched", {}).get("popupToday", 0) for u in all_data.values()),
+            "popupTotal": sum(u.get("ads_watched", {}).get("popupTotal", 0) for u in all_data.values()),
+            "inAppToday": sum(u.get("ads_watched", {}).get("inAppToday", 0) for u in all_data.values()),
+            "inAppTotal": sum(u.get("ads_watched", {}).get("inAppTotal", 0) for u in all_data.values())
         },
-        "adsWatchedTotal": sum(u.get("adsWatchedTotal", 0) for u in filtered.values())
+        "adsWatchedTotal": sum(u.get("adsWatchedTotal", 0) for u in all_data.values())
     })
 
 if __name__ == "__main__":
