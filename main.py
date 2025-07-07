@@ -58,7 +58,6 @@ def get_data():
                     "inAppTotal": 0
                 }
             }
-            # сохранить нового пользователя
             c.execute("INSERT INTO users (user_id, username, data) VALUES (?, ?, ?)",
                       (user_id, username or "", json.dumps(data)))
             conn.commit()
@@ -70,14 +69,15 @@ def save_data():
     req = request.get_json()
     user_id = req.get("user_id")
     data = req.get("data")
-    username = data.get("username", "")
     if not user_id or not data:
         return jsonify({"error": "Missing user_id or data"}), 400
+
+    print(f"Saving data for {user_id}:", data)  # отладка
 
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         c.execute("REPLACE INTO users (user_id, username, data) VALUES (?, ?, ?)",
-                  (user_id, username, json.dumps(data)))
+                  (user_id, data.get("username", ""), json.dumps(data)))
         conn.commit()
     return jsonify({"status": "ok"})
 
@@ -103,6 +103,42 @@ def get_top_players():
 
         result.sort(key=lambda x: -x["totalEarned"])
         return jsonify(result[:20])
+
+# === Глобальная статистика ===
+@app.route("/get_global_stats", methods=["GET"])
+def get_global_stats():
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT data FROM users")
+        rows = c.fetchall()
+
+    stats = {
+        "totalEarned": 0,
+        "totalClicks": 0,
+        "clickUpgrades": 0,
+        "passiveUpgrades": 0,
+        "users": len(rows),
+        "ads": {
+            "interstitialToday": 0, "interstitialTotal": 0,
+            "popupToday": 0, "popupTotal": 0,
+            "inAppToday": 0, "inAppTotal": 0,
+        }
+    }
+
+    for row in rows:
+        try:
+            data = json.loads(row[0])
+            stats["totalEarned"] += data.get("totalEarned", 0)
+            stats["totalClicks"] += data.get("totalClicks", 0)
+            stats["clickUpgrades"] += data.get("upgrades", {}).get("click", 0)
+            stats["passiveUpgrades"] += data.get("upgrades", {}).get("passive", 0)
+            ads = data.get("ads_watched", {})
+            for k in stats["ads"]:
+                stats["ads"][k] += ads.get(k, 0)
+        except:
+            continue
+
+    return jsonify(stats)
 
 # === Запуск ===
 if __name__ == "__main__":
