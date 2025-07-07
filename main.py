@@ -64,12 +64,13 @@ def get_data():
 @app.route("/save_data", methods=["POST"])
 def save_data():
     try:
-        req = request.get_json(force=True)
-        print("🔵 SAVE_DATA REQUEST:", req)
+        if request.is_json:
+            req = request.get_json()
+        else:
+            print("❌ BAD REQUEST HEADERS")
+            return jsonify({"error": "Invalid content type"}), 400
 
-        if not isinstance(req, dict):
-            print("⚠️ Invalid JSON received.")
-            return jsonify({"error": "Invalid JSON"}), 400
+        print("🔵 SAVE_DATA REQUEST:", req)
 
         user_id = req.get("user_id")
         data = req.get("data")
