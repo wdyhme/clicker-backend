@@ -1,4 +1,4 @@
-# === main.py (с фиксом имени Anon + username сохранение) ===
+# === main.py (обновлённая глобальная статистика с учётом всех типов рекламы) ===
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
@@ -151,8 +151,12 @@ def get_global_stats():
             stats["clickUpgrades"] += data.get("upgrades", {}).get("click", 0)
             stats["passiveUpgrades"] += data.get("upgrades", {}).get("passive", 0)
             ads = data.get("ads_watched", {})
-            for k in stats["ads"]:
-                stats["ads"][k] += ads.get(k, 0)
+            stats["ads"]["interstitialToday"] += ads.get("interstitialToday", 0)
+            stats["ads"]["interstitialTotal"] += ads.get("interstitialTotal", 0)
+            stats["ads"]["popupToday"] += ads.get("popupToday", 0)
+            stats["ads"]["popupTotal"] += ads.get("popupTotal", 0)
+            stats["ads"]["inAppToday"] += ads.get("inAppToday", 0)
+            stats["ads"]["inAppTotal"] += ads.get("inAppTotal", 0)
         except:
             continue
 
