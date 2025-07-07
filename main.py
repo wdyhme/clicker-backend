@@ -64,28 +64,26 @@ def get_data():
 @app.route("/save_data", methods=["POST"])
 def save_data():
     try:
-        if request.is_json:
-            req = request.get_json()
-        else:
-            print("❌ BAD REQUEST HEADERS")
+        if not request.is_json:
+            print("❌ Not JSON request")
             return jsonify({"error": "Invalid content type"}), 400
 
+        req = request.get_json()
         print("🔵 SAVE_DATA REQUEST:", req)
 
         user_id = req.get("user_id")
         data = req.get("data")
 
         if not user_id:
-            print("⚠️ No user_id in request.")
             return jsonify({"error": "Missing user_id"}), 400
         if not isinstance(data, dict):
-            print("⚠️ Data is not a dict.")
-            return jsonify({"error": "Invalid data format"}), 400
+            return jsonify({"error": "Invalid data"}), 400
 
         all_data = load_all()
         user = all_data.get(user_id, {})
         user = ensure_user_structure(user, data.get("nickname", "anon"))
 
+        # Обновляем поля
         for key in [
             "balance", "perClick", "passiveIncome",
             "totalEarned", "totalClicks",
@@ -112,6 +110,7 @@ def save_data():
     except Exception as e:
         print("❌ ERROR in /save_data:", e)
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/get_top_players")
 def get_top_players():
