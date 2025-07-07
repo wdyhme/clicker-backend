@@ -162,12 +162,6 @@ def get_global_stats():
 
     return jsonify(stats)
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-
-
-
 
 @app.route("/reset_all", methods=["POST"])
 def reset_all():
@@ -178,4 +172,13 @@ def reset_all():
     cur.close()
     conn.close()
     return jsonify({"status": "✅ Reset complete"})
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
+
+
+
+
 
