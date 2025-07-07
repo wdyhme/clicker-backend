@@ -1,7 +1,9 @@
+# This is the updated backend code (main.py)
+# To be used with your frontend to ensure proper data saving, shop functionality, bonus handling, and leaderboard logic
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import json
-import os
+import json, os
 from datetime import datetime
 
 app = Flask(__name__)
@@ -68,20 +70,13 @@ def save_data():
 
         print("🔵 SAVE_DATA REQUEST:", req)
 
-
-        if not isinstance(req, dict):
-            print("⚠️ Invalid JSON structure")
-            return jsonify({"error": "Invalid JSON"}), 400
-
         user_id = req.get("user_id")
         data = req.get("data")
 
         if not user_id:
-            print("⚠️ Missing user_id")
             return jsonify({"error": "Missing user_id"}), 400
         if not isinstance(data, dict):
-            print("⚠️ Data is not a dict")
-            return jsonify({"error": "Invalid data"}), 400
+            return jsonify({"error": "Invalid data format"}), 400
 
         all_data = load_all()
         user = all_data.get(user_id, {})
@@ -97,11 +92,7 @@ def save_data():
                 user[key] = data[key]
 
         user["upgrades"] = data.get("upgrades", {"click": 0, "passive": 0})
-        user["ads_watched"] = data.get("ads_watched", {
-            "interstitialToday": 0, "interstitialTotal": 0,
-            "popupToday": 0, "popupTotal": 0,
-            "inAppToday": 0, "inAppTotal": 0
-        })
+        user["ads_watched"] = data.get("ads_watched", user["ads_watched"])
         user["last_activity"] = datetime.utcnow().isoformat()
 
         all_data[user_id] = user
