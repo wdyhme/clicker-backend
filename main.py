@@ -4,11 +4,8 @@ import json
 import os
 from datetime import datetime
 
-from flask_cors import CORS
-
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
+CORS(app)
 
 DATA_FILE = "users.json"
 
@@ -22,8 +19,8 @@ def save_all(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-def ensure_user_structure(user, username=""):
-    user.setdefault("nickname", username or "anon")
+def ensure_user_structure(user, username="anon"):
+    user.setdefault("nickname", username)
     user.setdefault("balance", 0)
     user.setdefault("perClick", 1)
     user.setdefault("passiveIncome", 0)
@@ -48,7 +45,7 @@ def index():
 @app.route("/get_data")
 def get_data():
     user_id = request.args.get("user_id")
-    username = request.args.get("username", "")
+    username = request.args.get("username", "anon")
 
     if not user_id:
         return jsonify({"error": "Missing user_id"}), 400
@@ -64,26 +61,32 @@ def get_data():
 @app.route("/save_data", methods=["POST"])
 def save_data():
     try:
-        if not request.is_json:
-            print("❌ Not JSON request")
-            return jsonify({"error": "Invalid content type"}), 400
+        try:
+            req = request.get_json(force=True, silent=True)
+        except Exception as e:
+            print("❌ Failed to parse JSON:", e)
+            return jsonify({"error": "Invalid JSON"}), 400
 
-        req = request.get_json()
         print("🔵 SAVE_DATA REQUEST:", req)
+
+        if not isinstance(req, dict):
+            print("⚠️ Invalid JSON structure")
+            return jsonify({"error": "Invalid JSON"}), 400
 
         user_id = req.get("user_id")
         data = req.get("data")
 
         if not user_id:
+            print("⚠️ Missing user_id")
             return jsonify({"error": "Missing user_id"}), 400
         if not isinstance(data, dict):
+            print("⚠️ Data is not a dict")
             return jsonify({"error": "Invalid data"}), 400
 
         all_data = load_all()
         user = all_data.get(user_id, {})
         user = ensure_user_structure(user, data.get("nickname", "anon"))
 
-        # Обновляем поля
         for key in [
             "balance", "perClick", "passiveIncome",
             "totalEarned", "totalClicks",
@@ -110,7 +113,6 @@ def save_data():
     except Exception as e:
         print("❌ ERROR in /save_data:", e)
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/get_top_players")
 def get_top_players():
@@ -146,13 +148,3 @@ def get_global_stats():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
-
-
-@app.after_request
-def after_request(response):
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-    response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    return response
-
