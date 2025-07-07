@@ -1,4 +1,4 @@
-# === main.py (PostgreSQL version with fix for user_id type) ===
+# === main.py (с фиксом имени Anon + username сохранение) ===
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
@@ -60,33 +60,30 @@ def get_data():
                 "popupTotal": 0,
                 "inAppToday": 0,
                 "inAppTotal": 0
-            }
+            },
+            "username": username or "Anon"
         }
         cur.execute("INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
-                    (user_id, username or "", json.dumps(data)))
+                    (user_id, username or "Anon", json.dumps(data)))
         conn.commit()
 
     cur.close()
     conn.close()
-    print(f"✅ get_data returned for user_id={user_id}")
     return jsonify(data)
 
 @app.route("/save_data", methods=["POST"])
 def save_data():
     req = request.get_json()
-    user_id = str(req.get("user_id"))  # ← Fix here
+    user_id = str(req.get("user_id"))
     data = req.get("data")
-
-    print("=== /save_data called ===")
-    print("user_id:", user_id)
-    print("data:", data)
 
     if not user_id or not data:
         return jsonify({"error": "Missing user_id or data"}), 400
 
     if not isinstance(data, dict):
-        print("❌ data is not a dict")
         return jsonify({"error": "Invalid data format"}), 400
+
+    username = data.get("username", "Anon")
 
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
@@ -95,16 +92,15 @@ def save_data():
 
     if exists:
         cur.execute("UPDATE users SET data = %s, username = %s WHERE user_id = %s",
-                    (json.dumps(data), data.get("username", ""), user_id))
+                    (json.dumps(data), username, user_id))
     else:
         cur.execute("INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
-                    (user_id, data.get("username", ""), json.dumps(data)))
+                    (user_id, username, json.dumps(data)))
 
     conn.commit()
     cur.close()
     conn.close()
-    print(f"✅ Data saved for user_id={user_id}")
-    return jsonify({"status": "ok", "saved_data": data})
+    return jsonify({"status": "ok"})
 
 @app.route("/get_top_players", methods=["GET"])
 def get_top_players():
@@ -119,7 +115,7 @@ def get_top_players():
     for username, data in rows:
         try:
             total = data.get("totalEarned", 0)
-            result.append({"nickname": username or "Anon", "totalEarned": total})
+            result.append({"nickname": username or data.get("username", "Anon"), "totalEarned": total})
         except:
             continue
 
