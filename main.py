@@ -165,3 +165,17 @@ def get_global_stats():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
+
+
+
+@app.route("/reset_all", methods=["POST"])
+def reset_all():
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("TRUNCATE TABLE users;")
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "✅ Reset complete"})
+
