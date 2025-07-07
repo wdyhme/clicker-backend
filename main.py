@@ -61,13 +61,13 @@ def get_data():
 @app.route("/save_data", methods=["POST"])
 def save_data():
     try:
-        try:
-            req = request.get_json(force=True, silent=True)
-        except Exception as e:
-            print("❌ Failed to parse JSON:", e)
-            return jsonify({"error": "Invalid JSON"}), 400
+        req = request.get_json(force=True, silent=True)
+        if not req:
+            print("❌ No JSON body received")
+            return jsonify({"error": "Empty or invalid JSON"}), 400
 
         print("🔵 SAVE_DATA REQUEST:", req)
+
 
         if not isinstance(req, dict):
             print("⚠️ Invalid JSON structure")
