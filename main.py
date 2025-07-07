@@ -1,4 +1,3 @@
-# ✅ main.py — исправленный backend с учётом всех ошибок
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
@@ -20,8 +19,8 @@ def save_all(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-def ensure_user_structure(user, username):
-    user.setdefault("nickname", username)
+def ensure_user_structure(user, username=""):
+    user.setdefault("nickname", username or "anon")
     user.setdefault("balance", 0)
     user.setdefault("perClick", 1)
     user.setdefault("passiveIncome", 0)
@@ -40,50 +39,63 @@ def ensure_user_structure(user, username):
     return user
 
 @app.route("/")
-def root():
+def index():
     return "✅ Clicker backend is working"
 
 @app.route("/get_data")
 def get_data():
     user_id = request.args.get("user_id")
     username = request.args.get("username", "")
-    if not user_id or not username:
-        return jsonify({"error": "missing user_id or username"}), 400
+
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
 
     if user_id == "debug":
-        return jsonify({})  # Пропускаем debug_user
+        return jsonify({})  # Не сохраняем debug_user
 
     all_data = load_all()
     user = all_data.get(user_id, {})
     user = ensure_user_structure(user, username)
     all_data[user_id] = user
     save_all(all_data)
+
     return jsonify(user)
 
 @app.route("/save_data", methods=["POST"])
 def save_data():
     req = request.get_json()
+    print("🔵 SAVE_DATA REQUEST:", req)
+
     user_id = req.get("user_id")
     data = req.get("data")
-    if not user_id or not data:
-        return jsonify({"error": "invalid payload"}), 400
+
+    if not user_id or not isinstance(data, dict):
+        return jsonify({"error": "Invalid payload"}), 400
+
     if user_id == "debug":
-        return jsonify({"success": True})  # Не сохраняем debug_user
+        return jsonify({"success": True})
 
     all_data = load_all()
     user = all_data.get(user_id, {})
-    user = ensure_user_structure(user, data.get("nickname", ""))
+    user = ensure_user_structure(user, data.get("nickname", "anon"))
 
-    for key in ["balance", "perClick", "passiveIncome", "totalEarned", "totalClicks",
-                "adsWatchedToday", "adsWatchedTotal", "daily_bonus_claimed"]:
-        user[key] = data.get(key, user.get(key))
+    for key in [
+        "balance", "perClick", "passiveIncome",
+        "totalEarned", "totalClicks",
+        "adsWatchedToday", "adsWatchedTotal",
+        "daily_bonus_claimed"
+    ]:
+        if key in data:
+            user[key] = data[key]
 
-    user["upgrades"] = data.get("upgrades", user["upgrades"])
-    user["ads_watched"] = data.get("ads_watched", user["ads_watched"])
+    user["upgrades"] = data.get("upgrades", user.get("upgrades", {"click": 0, "passive": 0}))
+    user["ads_watched"] = data.get("ads_watched", user.get("ads_watched", {}))
     user["last_activity"] = datetime.utcnow().isoformat()
 
     all_data[user_id] = user
     save_all(all_data)
+
+    print(f"✅ Saved user {user_id}: balance={user['balance']} totalEarned={user['totalEarned']}")
     return jsonify({"success": True})
 
 @app.route("/get_top_players")
