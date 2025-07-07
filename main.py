@@ -50,7 +50,10 @@ def get_data():
             "passiveIncome": 0,
             "totalEarned": 0,
             "totalClicks": 0,
-            "upgrades": {"click": 0, "passive": 0},
+            "upgrades": {
+                "click": 0,
+                "passive": 0
+            },
             "adsWatchedToday": 0,
             "adsWatchedTotal": 0,
             "ads_watched": {
