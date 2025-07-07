@@ -1,27 +1,33 @@
-# === main.py ===
+# === main.py (PostgreSQL version) ===
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import sqlite3
-import json
+import psycopg2
 import os
+import json
 
 app = Flask(__name__)
 CORS(app)
 
-DB_PATH = "clicker.db"
+# === Подключение к PostgreSQL через DATABASE_URL ===
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# === Инициализация базы данных ===
+if not DATABASE_URL:
+    raise Exception("DATABASE_URL not set in environment variables")
+
+# === Инициализация таблицы ===
 def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                user_id TEXT PRIMARY KEY,
-                username TEXT,
-                data TEXT
-            )
-        ''')
-        conn.commit()
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id TEXT PRIMARY KEY,
+            username TEXT,
+            data JSONB
+        )
+    ''')
+    conn.commit()
+    cur.close()
+    conn.close()
 
 init_db()
 
@@ -33,34 +39,38 @@ def get_data():
     if not user_id:
         return jsonify({})
 
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute("SELECT data FROM users WHERE user_id = ?", (user_id,))
-        row = c.fetchone()
-        if row:
-            data = json.loads(row[0])
-        else:
-            data = {
-                "balance": 0,
-                "perClick": 1,
-                "passiveIncome": 0,
-                "totalEarned": 0,
-                "totalClicks": 0,
-                "upgrades": {"click": 0, "passive": 0},
-                "adsWatchedToday": 0,
-                "adsWatchedTotal": 0,
-                "ads_watched": {
-                    "interstitialToday": 0,
-                    "interstitialTotal": 0,
-                    "popupToday": 0,
-                    "popupTotal": 0,
-                    "inAppToday": 0,
-                    "inAppTotal": 0
-                }
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("SELECT data FROM users WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+
+    if row:
+        data = row[0]
+    else:
+        data = {
+            "balance": 0,
+            "perClick": 1,
+            "passiveIncome": 0,
+            "totalEarned": 0,
+            "totalClicks": 0,
+            "upgrades": {"click": 0, "passive": 0},
+            "adsWatchedToday": 0,
+            "adsWatchedTotal": 0,
+            "ads_watched": {
+                "interstitialToday": 0,
+                "interstitialTotal": 0,
+                "popupToday": 0,
+                "popupTotal": 0,
+                "inAppToday": 0,
+                "inAppTotal": 0
             }
-            c.execute("INSERT INTO users (user_id, username, data) VALUES (?, ?, ?)",
-                      (user_id, username or "", json.dumps(data)))
-            conn.commit()
+        }
+        cur.execute("INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
+                    (user_id, username or "", json.dumps(data)))
+        conn.commit()
+
+    cur.close()
+    conn.close()
     return jsonify(data)
 
 # === Сохранение данных пользователя ===
@@ -72,45 +82,53 @@ def save_data():
     if not user_id or not data:
         return jsonify({"error": "Missing user_id or data"}), 400
 
-    print(f"Saving data for {user_id}:", data)  # отладка
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
+    exists = cur.fetchone()
 
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute("REPLACE INTO users (user_id, username, data) VALUES (?, ?, ?)",
-                  (user_id, data.get("username", ""), json.dumps(data)))
-        conn.commit()
+    if exists:
+        cur.execute("UPDATE users SET data = %s, username = %s WHERE user_id = %s",
+                    (json.dumps(data), data.get("username", ""), user_id))
+    else:
+        cur.execute("INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
+                    (user_id, data.get("username", ""), json.dumps(data)))
+
+    conn.commit()
+    cur.close()
+    conn.close()
     return jsonify({"status": "ok"})
 
-# === Получение топа игроков ===
+# === Топ игроков ===
 @app.route("/get_top_players", methods=["GET"])
 def get_top_players():
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute("SELECT username, data FROM users")
-        rows = c.fetchall()
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("SELECT username, data FROM users")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
 
-        result = []
-        for username, data_str in rows:
-            try:
-                data = json.loads(data_str)
-                total = data.get("totalEarned", 0)
-                result.append({
-                    "nickname": username or "Anon",
-                    "totalEarned": total
-                })
-            except:
-                continue
+    result = []
+    for username, data in rows:
+        try:
+            total = data.get("totalEarned", 0)
+            result.append({"nickname": username or "Anon", "totalEarned": total})
+        except:
+            continue
 
-        result.sort(key=lambda x: -x["totalEarned"])
-        return jsonify(result[:20])
+    result.sort(key=lambda x: -x["totalEarned"])
+    return jsonify(result[:20])
 
 # === Глобальная статистика ===
 @app.route("/get_global_stats", methods=["GET"])
 def get_global_stats():
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute("SELECT data FROM users")
-        rows = c.fetchall()
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("SELECT data FROM users")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
 
     stats = {
         "totalEarned": 0,
@@ -125,9 +143,8 @@ def get_global_stats():
         }
     }
 
-    for row in rows:
+    for (data,) in rows:
         try:
-            data = json.loads(row[0])
             stats["totalEarned"] += data.get("totalEarned", 0)
             stats["totalClicks"] += data.get("totalClicks", 0)
             stats["clickUpgrades"] += data.get("upgrades", {}).get("click", 0)
