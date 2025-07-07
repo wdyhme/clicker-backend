@@ -4,8 +4,11 @@ import json
 import os
 from datetime import datetime
 
+from flask_cors import CORS
+
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 
 DATA_FILE = "users.json"
 
