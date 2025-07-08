@@ -183,5 +183,17 @@ if __name__ == "__main__":
 
 
 
+@app.route("/delete_debug", methods=["POST"])
+def delete_debug():
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM users WHERE username = %s", ('debug_user',))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "✅ debug_user deleted"})
+
+
+
 
 
