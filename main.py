@@ -173,7 +173,7 @@ def reset_all():
     cur.execute("TRUNCATE TABLE users;")
     conn.commit()
     cur.close()
-    conn.close()
+    conn.close() 
     return jsonify({"status": "✅ Reset complete"})
 
 
@@ -198,6 +198,6 @@ if __name__ == "__main__":
 
 
 
-
+ 
 
 
