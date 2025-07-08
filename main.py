@@ -176,9 +176,7 @@ def reset_all():
     conn.close()
     return jsonify({"status": "✅ Reset complete"})
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+
 
 
 
@@ -192,6 +190,12 @@ def delete_debug():
     cur.close()
     conn.close()
     return jsonify({"status": "✅ debug_user deleted"})
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
+
 
 
 
