@@ -142,16 +142,19 @@ def global_stats():
     conn.close()
 
     return jsonify({
-        "totalEarned": total_earned,
-        "totalClicks": total_clicks,
-        "clickUpgrades": click_upgrades,
-        "passiveUpgrades": passive_upgrades,
+    "totalEarned": total_earned,
+    "totalClicks": total_clicks,
+    "clickUpgrades": click_upgrades,
+    "passiveUpgrades": passive_upgrades,
+    "users": users,
+    "ads": {
         "interstitialToday": interstitial_today,
         "interstitialTotal": interstitial_total,
         "popupToday": popup_today,
-        "popupTotal": popup_total,
-        "users": users
-    })
+        "popupTotal": popup_total
+    }
+})
+
 
 # Полный сброс БД (для разработки, не вызывай случайно!)
 @app.route("/reset_all", methods=["POST"])
