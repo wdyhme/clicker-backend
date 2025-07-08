@@ -164,5 +164,20 @@ def reset_all():
     conn.close()
     return jsonify({"status": "✅ Reset complete"})
 
+
+
+@app.route("/get_top_players", methods=["GET"])
+def get_top_players():
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("SELECT username, (data->>'totalEarned')::BIGINT FROM users WHERE username IS NOT NULL ORDER BY (data->>'totalEarned')::BIGINT DESC LIMIT 10")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify([
+        {"nickname": row[0], "totalEarned": row[1]} for row in rows
+    ])
+
+
 if __name__ == "__main__":
     app.run(debug=True)
