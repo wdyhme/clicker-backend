@@ -228,6 +228,30 @@ def get_global_stats():
     return jsonify(stats)
 
 
+@app.route("/save_data", methods=["POST"])
+def save_data():
+    req = request.get_json()
+    user_id = str(req.get("user_id"))
+    data = req.get("data")
+    username = data.get("username", "Anon")
+
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
+    exists = cur.fetchone()
+
+    if exists:
+        cur.execute("UPDATE users SET data = %s, username = %s WHERE user_id = %s",
+                    (json.dumps(data), username, user_id))
+    else:
+        cur.execute("INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
+                    (user_id, username, json.dumps(data)))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "ok"})
 
 
 
