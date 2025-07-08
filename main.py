@@ -1,4 +1,4 @@
-# === main.py (финальная версия, сохранение, получение, глобальная статистика) ===
+М# === main.py (финальная версия, сохранение, получение, глобальная статистика) ===
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
@@ -88,7 +88,8 @@ def save_data():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
     cur.execute("UPDATE users SET data = %s, username = %s WHERE user_id = %s",
-                (data_json, username, user_id))
+            (json.dumps(data), username, user_id))
+
     conn.commit()
     cur.close()
     conn.close()
