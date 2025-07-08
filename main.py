@@ -40,7 +40,7 @@ def get_data():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
 
-    # Удаляем дубли с таким же username, но другим user_id
+    # Удаляем дубликаты: если уже есть другой user_id с таким же username
     if username:
         cur.execute("DELETE FROM users WHERE username = %s AND user_id != %s", (username, user_id))
 
@@ -79,6 +79,7 @@ def get_data():
     cur.close()
     conn.close()
     return jsonify(data)
+
 
 
 @app.route("/save_data", methods=["POST"])
