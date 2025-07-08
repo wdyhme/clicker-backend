@@ -1,4 +1,4 @@
-М# === main.py (финальная версия, сохранение, получение, глобальная статистика) ===
+# === main.py (финальная версия, сохранение, получение, глобальная статистика) ===
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
