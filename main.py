@@ -81,30 +81,18 @@ def save_data():
     req = request.get_json()
     user_id = str(req.get("user_id"))
     data = req.get("data")
-
-    if not user_id or not data:
-        return jsonify({"error": "Missing user_id or data"}), 400
-
-    if not isinstance(data, dict):
-        return jsonify({"error": "Invalid data format"}), 400
-
     username = data.get("username", "Anon")
+    data_json = json.dumps(data)
 
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
-    cur.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
-    exists = cur.fetchone()
-
-    if exists:
-        cur.execute("UPDATE users SET data = %s, username = %s WHERE user_id = %s",
-                    (json.dumps(data), username, user_id))
-    else:
-        cur.execute("INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
-                    (user_id, username, json.dumps(data)))
+    cur.execute("UPDATE users SET data = %s, username = %s WHERE user_id = %s",
+                (data_json, username, user_id))
     conn.commit()
     cur.close()
     conn.close()
     return jsonify({"status": "ok"})
+
 
 # Глобальная статистика
 @app.route("/global_stats", methods=["GET"])
