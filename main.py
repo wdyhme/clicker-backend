@@ -33,14 +33,17 @@ init_db()
 def get_data():
     user_id = str(request.args.get("user_id"))
     username = request.args.get("username")
-    # Удаляем дубли с таким же username, но другим user_id
-    cur.execute("DELETE FROM users WHERE username = %s AND user_id != %s", (username, user_id))
 
     if not user_id:
         return jsonify({})
 
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
+
+    # Удаляем дубли с таким же username, но другим user_id
+    if username:
+        cur.execute("DELETE FROM users WHERE username = %s AND user_id != %s", (username, user_id))
+
     cur.execute("SELECT data FROM users WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
 
@@ -76,6 +79,7 @@ def get_data():
     cur.close()
     conn.close()
     return jsonify(data)
+
 
 @app.route("/save_data", methods=["POST"])
 def save_data():
