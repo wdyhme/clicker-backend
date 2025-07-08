@@ -33,7 +33,8 @@ init_db()
 # Получение данных пользователя
 @app.route("/get_data", methods=["GET"])
 def get_data():
-    user_id = str(request.args.get("user_id"))
+    user_id = str(request.args.get("user_id"))  # get_data
+
     username = request.args.get("username")
     if not user_id:
         return jsonify({})
@@ -79,7 +80,8 @@ def get_data():
 @app.route("/save_data", methods=["POST"])
 def save_data():
     req = request.get_json()
-    user_id = str(req["user_id"])  # обязательно str
+    user_id = str(req["user_id"])  # save_data
+
 
     data = req.get("data")
     username = data.get("username", "Anon")
