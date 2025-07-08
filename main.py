@@ -1,4 +1,4 @@
-# === main.py (обновлённая глобальная статистика с учётом всех типов рекламы) ===
+# === main.py (финальная версия, сохранение, получение, глобальная статистика) ===
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
@@ -8,11 +8,12 @@ import json
 app = Flask(__name__)
 CORS(app)
 
+# Получаем URL базы данных из переменных окружения
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     raise Exception("DATABASE_URL not set")
 
-# === Инициализация таблицы ===
+# Инициализация таблицы, если она не существует
 def init_db():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
@@ -29,6 +30,7 @@ def init_db():
 
 init_db()
 
+# Получение данных пользователя
 @app.route("/get_data", methods=["GET"])
 def get_data():
     user_id = str(request.args.get("user_id"))
@@ -60,9 +62,8 @@ def get_data():
                 "interstitialToday": 0,
                 "interstitialTotal": 0,
                 "popupToday": 0,
-                "popupTotal": 0,
-                "inAppToday": 0,
-                "inAppTotal": 0
+                "popupTotal": 0
+                # inApp теперь не учитываем
             },
             "username": username or "Anon"
         }
@@ -74,6 +75,7 @@ def get_data():
     conn.close()
     return jsonify(data)
 
+# Сохранение данных пользователя
 @app.route("/save_data", methods=["POST"])
 def save_data():
     req = request.get_json()
@@ -99,105 +101,68 @@ def save_data():
     else:
         cur.execute("INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
                     (user_id, username, json.dumps(data)))
-
     conn.commit()
     cur.close()
     conn.close()
     return jsonify({"status": "ok"})
 
-@app.route("/get_top_players", methods=["GET"])
-def get_top_players():
-    conn = psycopg2.connect(DATABASE_URL)
-    cur = conn.cursor()
-    cur.execute("SELECT username, data FROM users")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    result = []
-    for username, data in rows:
-        try:
-            total = data.get("totalEarned", 0)
-            result.append({"nickname": username or data.get("username", "Anon"), "totalEarned": total})
-        except:
-            continue
-
-    result.sort(key=lambda x: -x["totalEarned"])
-    return jsonify(result[:20])
-
-@app.route("/get_global_stats", methods=["GET"])
-def get_global_stats():
+# Глобальная статистика
+@app.route("/global_stats", methods=["GET"])
+def global_stats():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
     cur.execute("SELECT data FROM users")
     rows = cur.fetchall()
+
+    total_earned = 0
+    total_clicks = 0
+    click_upgrades = 0
+    passive_upgrades = 0
+    interstitial_today = 0
+    interstitial_total = 0
+    popup_today = 0
+    popup_total = 0
+    users = 0
+
+    for row in rows:
+        data = row[0]
+        users += 1
+        total_earned += data.get("totalEarned", 0)
+        total_clicks += data.get("totalClicks", 0)
+        upgrades = data.get("upgrades", {})
+        click_upgrades += upgrades.get("click", 0)
+        passive_upgrades += upgrades.get("passive", 0)
+        ads = data.get("ads_watched", {})
+        interstitial_today += ads.get("interstitialToday", 0)
+        interstitial_total += ads.get("interstitialTotal", 0)
+        popup_today += ads.get("popupToday", 0)
+        popup_total += ads.get("popupTotal", 0)
+
     cur.close()
     conn.close()
 
-    stats = {
-        "totalEarned": 0,
-        "totalClicks": 0,
-        "clickUpgrades": 0,
-        "passiveUpgrades": 0,
-        "users": len(rows),
-        "ads": {
-            "interstitialToday": 0, "interstitialTotal": 0,
-            "popupToday": 0, "popupTotal": 0,
-            "inAppToday": 0, "inAppTotal": 0,
-        }
-    }
+    return jsonify({
+        "totalEarned": total_earned,
+        "totalClicks": total_clicks,
+        "clickUpgrades": click_upgrades,
+        "passiveUpgrades": passive_upgrades,
+        "interstitialToday": interstitial_today,
+        "interstitialTotal": interstitial_total,
+        "popupToday": popup_today,
+        "popupTotal": popup_total,
+        "users": users
+    })
 
-    for (data,) in rows:
-        try:
-            stats["totalEarned"] += data.get("totalEarned", 0)
-            stats["totalClicks"] += data.get("totalClicks", 0)
-            stats["clickUpgrades"] += data.get("upgrades", {}).get("click", 0)
-            stats["passiveUpgrades"] += data.get("upgrades", {}).get("passive", 0)
-            ads = data.get("ads_watched", {})
-            stats["ads"]["interstitialToday"] += ads.get("interstitialToday", 0)
-            stats["ads"]["interstitialTotal"] += ads.get("interstitialTotal", 0)
-            stats["ads"]["popupToday"] += ads.get("popupToday", 0)
-            stats["ads"]["popupTotal"] += ads.get("popupTotal", 0)
-            stats["ads"]["inAppToday"] += ads.get("inAppToday", 0)
-            stats["ads"]["inAppTotal"] += ads.get("inAppTotal", 0)
-        except:
-            continue
-
-    return jsonify(stats)
-
-
+# Полный сброс БД (для разработки, не вызывай случайно!)
 @app.route("/reset_all", methods=["POST"])
 def reset_all():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
-    cur.execute("TRUNCATE TABLE users;")
+    cur.execute("DELETE FROM users")
     conn.commit()
     cur.close()
     conn.close()
     return jsonify({"status": "✅ Reset complete"})
 
-
-
-
-
-
-@app.route("/delete_debug", methods=["POST"])
-def delete_debug():
-    conn = psycopg2.connect(DATABASE_URL)
-    cur = conn.cursor()
-    cur.execute("DELETE FROM users WHERE username = %s", ('debug_user',))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"status": "✅ debug_user deleted"})
-
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-
-
-
-
-
-
-
+    app.run(debug=True)
