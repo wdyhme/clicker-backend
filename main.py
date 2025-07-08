@@ -33,6 +33,9 @@ init_db()
 def get_data():
     user_id = str(request.args.get("user_id"))
     username = request.args.get("username")
+    # Удаляем дубли с таким же username, но другим user_id
+    cur.execute("DELETE FROM users WHERE username = %s AND user_id != %s", (username, user_id))
+
     if not user_id:
         return jsonify({})
 
