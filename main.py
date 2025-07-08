@@ -79,7 +79,8 @@ def get_data():
 @app.route("/save_data", methods=["POST"])
 def save_data():
     req = request.get_json()
-    user_id = str(req.get("user_id"))
+    user_id = str(req["user_id"])  # обязательно str
+
     data = req.get("data")
     username = data.get("username", "Anon")
     data_json = json.dumps(data)
