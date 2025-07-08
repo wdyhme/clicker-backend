@@ -172,5 +172,59 @@ def get_top_players():
     ])
 
 
+@app.route("/get_top_players", methods=["GET"])
+def get_top_players():
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("SELECT username, (data->>'totalEarned')::BIGINT FROM users WHERE username IS NOT NULL ORDER BY (data->>'totalEarned')::BIGINT DESC LIMIT 10")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify([
+        {"nickname": row[0], "totalEarned": int(row[1])} for row in rows
+    ])
+
+@app.route("/get_global_stats", methods=["GET"])
+def get_global_stats():
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("SELECT data FROM users")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    stats = {
+        "totalEarned": 0,
+        "totalClicks": 0,
+        "clickUpgrades": 0,
+        "passiveUpgrades": 0,
+        "users": len(rows),
+        "ads": {
+            "interstitialToday": 0,
+            "interstitialTotal": 0,
+            "popupToday": 0,
+            "popupTotal": 0,
+            "inAppToday": 0,
+            "inAppTotal": 0
+        }
+    }
+
+    for row in rows:
+        data = row[0]
+        stats["totalEarned"] += data.get("totalEarned", 0)
+        stats["totalClicks"] += data.get("totalClicks", 0)
+        stats["clickUpgrades"] += data.get("upgrades", {}).get("click", 0)
+        stats["passiveUpgrades"] += data.get("upgrades", {}).get("passive", 0)
+        ads = data.get("ads_watched", {})
+        stats["ads"]["interstitialToday"] += ads.get("interstitialToday", 0)
+        stats["ads"]["interstitialTotal"] += ads.get("interstitialTotal", 0)
+        stats["ads"]["popupToday"] += ads.get("popupToday", 0)
+        stats["ads"]["popupTotal"] += ads.get("popupTotal", 0)
+        stats["ads"]["inAppToday"] += ads.get("inAppToday", 0)
+        stats["ads"]["inAppTotal"] += ads.get("inAppTotal", 0)
+
+    return jsonify(stats)
+
+
 if __name__ == "__main__":
     app.run(debug=True)
