@@ -40,54 +40,52 @@ def get_data():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
 
-    # Удаляем дубликаты: если уже есть другой user_id с таким же username
+    # Удаляем дубли с таким же username, но другим user_id
     if username:
-        try:
-            cur.execute("DELETE FROM users WHERE username = %s AND user_id != %s", (username, user_id))
-            conn.commit()
-        except Exception as e:
-            print(f"Error deleting duplicate users: {e}")
+        cur.execute(
+            "DELETE FROM users WHERE username = %s AND user_id != %s",
+            (username, user_id)
+        )
+        conn.commit()
 
-    try:
-        cur.execute("SELECT data FROM users WHERE user_id = %s", (user_id,))
-        row = cur.fetchone()
+    cur.execute("SELECT data FROM users WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
 
-        if row:
-            data = row[0]
-        else:
-            data = {
-                "balance": 0,
-                "perClick": 1,
-                "passiveIncome": 0,
-                "totalEarned": 0,
-                "totalClicks": 0,
-                "upgrades": {
-                    "click": 0,
-                    "passive": 0
-                },
-                "adsWatchedToday": 0,
-                "adsWatchedTotal": 0,
-                "ads_watched": {
-                    "interstitialToday": 0,
-                    "interstitialTotal": 0,
-                    "popupToday": 0,
-                    "popupTotal": 0,
-                    "inAppToday": 0,
-                    "inAppTotal": 0
-                },
-                "username": username or "Anon"
-            }
-            cur.execute("INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
-                        (user_id, username or "Anon", json.dumps(data)))
-            conn.commit()
-
-    except Exception as e:
-        print(f"Error in get_data(): {e}")
-        data = {}
+    if row:
+        data = row[0]
+    else:
+        data = {
+            "balance": 0,
+            "perClick": 1,
+            "passiveIncome": 0,
+            "totalEarned": 0,
+            "totalClicks": 0,
+            "upgrades": {
+                "click": 0,
+                "passive": 0
+            },
+            "adsWatchedToday": 0,
+            "adsWatchedTotal": 0,
+            "ads_watched": {
+                "interstitialToday": 0,
+                "interstitialTotal": 0,
+                "popupToday": 0,
+                "popupTotal": 0,
+                "inAppToday": 0,
+                "inAppTotal": 0
+            },
+            "username": username or "Anon"
+        }
+        cur.execute(
+            "INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
+            (user_id, username or "Anon", json.dumps(data))
+        )
+        conn.commit()
 
     cur.close()
     conn.close()
     return jsonify(data)
+
 
 
 
