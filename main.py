@@ -64,7 +64,8 @@ def get_data():
                 "click": 0,
                 "passive": 0
             },
-            "dailyBigClaimedToday": False,
+            "bigBonusClaimed": False
+
 
             "adsWatchedToday": 0,
             "adsWatchedTotal": 0,
