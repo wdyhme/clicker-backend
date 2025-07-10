@@ -142,7 +142,7 @@ def get_top_players():
             continue
 
     result.sort(key=lambda x: -x["totalEarned"])
-    return jsonify(result[:20])
+    return jsonify(result[:100])
 
 @app.route("/get_global_stats", methods=["GET"])
 def get_global_stats():
