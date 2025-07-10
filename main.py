@@ -64,6 +64,8 @@ def get_data():
                 "click": 0,
                 "passive": 0
             },
+            "dailyBigClaimedToday": False,
+
             "adsWatchedToday": 0,
             "adsWatchedTotal": 0,
             "ads_watched": {
@@ -73,6 +75,8 @@ def get_data():
                 "popupTotal": 0,
                 "inAppToday": 0,
                 "inAppTotal": 0
+                
+
             },
             "username": username or "Anon"
         }
