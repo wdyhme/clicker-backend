@@ -1,10 +1,9 @@
-# === main.py (с PostgreSQL + сброс глобальной рекламы) ===
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 app = Flask(__name__)
 CORS(app)
@@ -13,7 +12,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     raise Exception("DATABASE_URL not set")
 
-# === Инициализация таблицы ===
+# === Инициализация таблицы пользователей ===
 def init_db():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
@@ -30,11 +29,22 @@ def init_db():
 
 init_db()
 
-# === API: получить данные пользователя ===
+# === Сброс global today (через память) ===
+last_reset_date = None
+def should_reset_global_ads():
+    global last_reset_date
+    now = datetime.now(timezone.utc) + timedelta(hours=3)
+    today = now.strftime("%Y-%m-%d")
+    if last_reset_date != today:
+        last_reset_date = today
+        return True
+    return False
+
+# === /get_data: получить данные пользователя ===
 @app.route("/get_data", methods=["GET"])
 def get_data():
     user_id = str(request.args.get("user_id"))
-    username = request.args.get("username")
+    username = request.args.get("username") or "Anon"
 
     if not user_id:
         return jsonify({})
@@ -42,12 +52,8 @@ def get_data():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
 
-    if username:
-        cur.execute(
-            "DELETE FROM users WHERE username = %s AND user_id != %s",
-            (username, user_id)
-        )
-        conn.commit()
+    cur.execute("DELETE FROM users WHERE username = %s AND user_id != %s", (username, user_id))
+    conn.commit()
 
     cur.execute("SELECT data FROM users WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
@@ -76,19 +82,17 @@ def get_data():
                 "inAppToday": 0,
                 "inAppTotal": 0
             },
-            "username": username or "Anon"
+            "username": username
         }
-        cur.execute(
-            "INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
-            (user_id, username or "Anon", json.dumps(data))
-        )
+        cur.execute("INSERT INTO users (user_id, username, data) VALUES (%s, %s, %s)",
+                    (user_id, username, json.dumps(data)))
         conn.commit()
 
     cur.close()
     conn.close()
     return jsonify(data)
 
-# === API: сохранить данные пользователя ===
+# === /save_data: сохранить данные пользователя ===
 @app.route("/save_data", methods=["POST"])
 def save_data():
     req = request.get_json()
@@ -97,8 +101,6 @@ def save_data():
 
     if not user_id or not data:
         return jsonify({"error": "Missing user_id or data"}), 400
-    if not isinstance(data, dict):
-        return jsonify({"error": "Invalid data format"}), 400
 
     username = data.get("username", "Anon")
     conn = psycopg2.connect(DATABASE_URL)
@@ -119,7 +121,7 @@ def save_data():
     conn.close()
     return jsonify({"status": "ok"})
 
-# === API: топ игроков ===
+# === /get_top_players: топ игроков ===
 @app.route("/get_top_players", methods=["GET"])
 def get_top_players():
     conn = psycopg2.connect(DATABASE_URL)
@@ -140,22 +142,7 @@ def get_top_players():
     result.sort(key=lambda x: -x["totalEarned"])
     return jsonify(result[:100])
 
-
-
-from datetime import datetime, timedelta, timezone
-
-last_reset_date = None
-
-def should_reset_global_ads():
-    global last_reset_date
-    now = datetime.now(timezone.utc) + timedelta(hours=3)
-    today = now.strftime("%Y-%m-%d")
-    if last_reset_date != today:
-        last_reset_date = today
-        return True
-    return False
-
-
+# === /get_global_stats: глобальная статистика (подсчёт на лету) ===
 @app.route("/get_global_stats", methods=["GET"])
 def get_global_stats():
     conn = psycopg2.connect(DATABASE_URL)
@@ -181,7 +168,7 @@ def get_global_stats():
         }
     }
 
-    reset_today = should_reset_global_ads()  # ✅ вызываем один раз
+    reset_today = should_reset_global_ads()
 
     for (data,) in rows:
         try:
@@ -195,31 +182,28 @@ def get_global_stats():
             stats["ads"]["popupTotal"] += ads.get("popupTotal", 0)
             stats["ads"]["inAppTotal"] += ads.get("inAppTotal", 0)
 
-            # ❗ today считается только если не сбрасываем
             if not reset_today:
                 stats["ads"]["interstitialToday"] += ads.get("interstitialToday", 0)
                 stats["ads"]["popupToday"] += ads.get("popupToday", 0)
                 stats["ads"]["inAppToday"] += ads.get("inAppToday", 0)
 
-        except Exception as e:
+        except Exception:
             continue
 
     return jsonify(stats)
 
-
-
-# === отладка: сброс таблицы ===
+# === /reset_all: сброс таблицы (только для тестов) ===
 @app.route("/reset_all", methods=["POST"])
 def reset_all():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
-    cur.execute("TRUNCATE TABLE users;")
+    cur.execute("TRUNCATE TABLE users")
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"status": "✅ Reset complete"})
+    return jsonify({"status": "reset done"})
 
-# === отладка: удалить тестового юзера ===
+# === /delete_debug: удалить test-пользователя ===
 @app.route("/delete_debug", methods=["POST"])
 def delete_debug():
     conn = psycopg2.connect(DATABASE_URL)
@@ -228,9 +212,9 @@ def delete_debug():
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"status": "✅ debug_user deleted"})
+    return jsonify({"status": "debug_user deleted"})
 
-# === Запуск сервера ===
+# === Запуск ===
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
