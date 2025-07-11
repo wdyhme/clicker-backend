@@ -140,16 +140,19 @@ def get_top_players():
     result.sort(key=lambda x: -x["totalEarned"])
     return jsonify(result[:100])
 
-# === ✅ авто-сброс глобальной статистики рекламы ===
+
+
 last_reset_date = None
+
 def should_reset_global_ads():
     global last_reset_date
-    now = datetime.utcnow() + timedelta(hours=3)  # GMT+3
+    now = datetime.now(timezone.utc) + timedelta(hours=3)  # GMT+3
     today = now.strftime("%Y-%m-%d")
     if last_reset_date != today:
         last_reset_date = today
         return True
     return False
+
 
 @app.route("/get_global_stats", methods=["GET"])
 def get_global_stats():
