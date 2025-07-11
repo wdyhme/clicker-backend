@@ -29,18 +29,8 @@ def init_db():
 
 init_db()
 
-# === Сброс global today (через память) ===
-last_reset_date = None
-def should_reset_global_ads():
-    global last_reset_date
-    now = datetime.now(timezone.utc) + timedelta(hours=3)
-    today = now.strftime("%Y-%m-%d")
-    if last_reset_date != today:
-        last_reset_date = today
-        return True
-    return False
 
-# === /get_data: получить данные пользователя ===
+# === /get_data ===
 @app.route("/get_data", methods=["GET"])
 def get_data():
     user_id = str(request.args.get("user_id"))
@@ -67,10 +57,7 @@ def get_data():
             "passiveIncome": 0,
             "totalEarned": 0,
             "totalClicks": 0,
-            "upgrades": {
-                "click": 0,
-                "passive": 0
-            },
+            "upgrades": {"click": 0, "passive": 0},
             "bigBonusClaimed": False,
             "adsWatchedToday": 0,
             "adsWatchedTotal": 0,
@@ -92,7 +79,8 @@ def get_data():
     conn.close()
     return jsonify(data)
 
-# === /save_data: сохранить данные пользователя ===
+
+# === /save_data ===
 @app.route("/save_data", methods=["POST"])
 def save_data():
     req = request.get_json()
@@ -127,7 +115,7 @@ def save_data():
     return jsonify({"status": "ok"})
 
 
-# === /get_top_players: топ игроков ===
+# === /get_top_players ===
 @app.route("/get_top_players", methods=["GET"])
 def get_top_players():
     conn = psycopg2.connect(DATABASE_URL)
@@ -141,14 +129,18 @@ def get_top_players():
     for username, data in rows:
         try:
             total = data.get("totalEarned", 0)
-            result.append({"nickname": username or data.get("username", "Anon"), "totalEarned": total})
+            result.append({
+                "nickname": username or data.get("username", "Anon"),
+                "totalEarned": total
+            })
         except:
             continue
 
     result.sort(key=lambda x: -x["totalEarned"])
     return jsonify(result[:100])
 
-# === /get_global_stats: глобальная статистика (подсчёт на лету) ===
+
+# === /get_global_stats ===
 @app.route("/get_global_stats", methods=["GET"])
 def get_global_stats():
     conn = psycopg2.connect(DATABASE_URL)
@@ -171,7 +163,7 @@ def get_global_stats():
             "interstitialToday": 0,
             "interstitialTotal": 0,
             "popupToday": 0,
-            "popupTotal": 0,
+            "popupTotal": 0
         }
     }
 
@@ -183,40 +175,45 @@ def get_global_stats():
             stats["passiveUpgrades"] += data.get("upgrades", {}).get("passive", 0)
 
             ads = data.get("ads_watched", {})
-
             stats["ads"]["interstitialTotal"] += ads.get("interstitialTotal", 0)
             stats["ads"]["popupTotal"] += ads.get("popupTotal", 0)
-
-            last_reset = data.get("lastResetDate")
-            if last_reset == today_str:
-                stats["ads"]["interstitialToday"] += ads.get("interstitialToday", 0)
-                stats["ads"]["popupToday"] += ads.get("popupToday", 0)
-
-        except Exception:
+            stats["ads"]["interstitialToday"] += ads.get("interstitialToday", 0)
+            stats["ads"]["popupToday"] += ads.get("popupToday", 0)
+        except:
             continue
 
     return jsonify(stats)
 
 
+# === /reset_daily_stats (вызывать CRONом) ===
 @app.route("/reset_daily_stats", methods=["POST"])
 def reset_daily_stats():
-    with db.cursor() as cur:
-        cur.execute("SELECT user_id, data FROM users")
-        users = cur.fetchall()
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("SELECT user_id, data FROM users")
+    users = cur.fetchall()
 
-        for user_id, data in users:
-            try:
-                data["adsWatchedToday"] = 0
-                data["bigBonusClaimed"] = False
-                if "ads_watched" in data:
-                    data["ads_watched"]["interstitialToday"] = 0
-                    data["ads_watched"]["popupToday"] = 0
-                cur.execute("UPDATE users SET data = %s WHERE user_id = %s", (json.dumps(data), user_id))
-            except Exception as e:
-                print(f"Error updating user {user_id}: {e}")
-        db.commit()
+    now = datetime.now(timezone.utc) + timedelta(hours=3)
+    today_str = now.strftime("%Y-%m-%d")
 
-    return jsonify({"status": "ok", "message": "Daily stats reset"}), 200
+    for user_id, data in users:
+        try:
+            data["adsWatchedToday"] = 0
+            data["bigBonusClaimed"] = False
+            data["lastResetDate"] = today_str
+
+            if "ads_watched" in data:
+                data["ads_watched"]["interstitialToday"] = 0
+                data["ads_watched"]["popupToday"] = 0
+
+            cur.execute("UPDATE users SET data = %s WHERE user_id = %s", (json.dumps(data), user_id))
+        except Exception as e:
+            print(f"❌ Error resetting {user_id}: {e}")
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "ok", "message": "Daily stats reset"})
 
 
 # === Запуск ===
