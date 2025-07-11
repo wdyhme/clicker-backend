@@ -151,7 +151,6 @@ def should_reset_global_ads():
         return True
     return False
 
-# === API: глобальная статистика ===
 @app.route("/get_global_stats", methods=["GET"])
 def get_global_stats():
     conn = psycopg2.connect(DATABASE_URL)
@@ -168,11 +167,16 @@ def get_global_stats():
         "passiveUpgrades": 0,
         "users": len(rows),
         "ads": {
-            "interstitialToday": 0, "interstitialTotal": 0,
-            "popupToday": 0, "popupTotal": 0,
-            "inAppToday": 0, "inAppTotal": 0,
+            "interstitialToday": 0,
+            "interstitialTotal": 0,
+            "popupToday": 0,
+            "popupTotal": 0,
+            "inAppToday": 0,
+            "inAppTotal": 0,
         }
     }
+
+    reset_today = should_reset_global_ads()  # ✅ вызываем ОДИН РАЗ
 
     for (data,) in rows:
         try:
@@ -186,18 +190,16 @@ def get_global_stats():
             stats["ads"]["popupTotal"] += ads.get("popupTotal", 0)
             stats["ads"]["inAppTotal"] += ads.get("inAppTotal", 0)
 
-            # ⏱️ Сбрасываем today только если нужно
-            if should_reset_global_ads():
-                continue
+            if not reset_today:
+                stats["ads"]["interstitialToday"] += ads.get("interstitialToday", 0)
+                stats["ads"]["popupToday"] += ads.get("popupToday", 0)
+                stats["ads"]["inAppToday"] += ads.get("inAppToday", 0)
 
-            stats["ads"]["interstitialToday"] += ads.get("interstitialToday", 0)
-            stats["ads"]["popupToday"] += ads.get("popupToday", 0)
-            stats["ads"]["inAppToday"] += ads.get("inAppToday", 0)
-
-        except:
+        except Exception as e:
             continue
 
     return jsonify(stats)
+
 
 # === отладка: сброс таблицы ===
 @app.route("/reset_all", methods=["POST"])
