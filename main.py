@@ -99,6 +99,10 @@ def save_data():
     user_id = str(req.get("user_id"))
     data = req.get("data")
 
+    now = datetime.now(timezone.utc) + timedelta(hours=3)
+today_str = now.strftime("%Y-%m-%d")
+data["lastResetDate"] = today_str
+
     if not user_id or not data:
         return jsonify({"error": "Missing user_id or data"}), 400
 
@@ -152,6 +156,9 @@ def get_global_stats():
     cur.close()
     conn.close()
 
+    now = datetime.now(timezone.utc) + timedelta(hours=3)
+    today_str = now.strftime("%Y-%m-%d")
+
     stats = {
         "totalEarned": 0,
         "totalClicks": 0,
@@ -163,12 +170,8 @@ def get_global_stats():
             "interstitialTotal": 0,
             "popupToday": 0,
             "popupTotal": 0,
-            "inAppToday": 0,
-            "inAppTotal": 0,
         }
     }
-
-    reset_today = should_reset_global_ads()
 
     for (data,) in rows:
         try:
@@ -178,41 +181,22 @@ def get_global_stats():
             stats["passiveUpgrades"] += data.get("upgrades", {}).get("passive", 0)
 
             ads = data.get("ads_watched", {})
+
             stats["ads"]["interstitialTotal"] += ads.get("interstitialTotal", 0)
             stats["ads"]["popupTotal"] += ads.get("popupTotal", 0)
-            stats["ads"]["inAppTotal"] += ads.get("inAppTotal", 0)
 
-            if not reset_today:
+            last_reset = data.get("lastResetDate")
+            if last_reset == today_str:
                 stats["ads"]["interstitialToday"] += ads.get("interstitialToday", 0)
                 stats["ads"]["popupToday"] += ads.get("popupToday", 0)
-                stats["ads"]["inAppToday"] += ads.get("inAppToday", 0)
 
         except Exception:
             continue
 
     return jsonify(stats)
 
-# === /reset_all: сброс таблицы (только для тестов) ===
-@app.route("/reset_all", methods=["POST"])
-def reset_all():
-    conn = psycopg2.connect(DATABASE_URL)
-    cur = conn.cursor()
-    cur.execute("TRUNCATE TABLE users")
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"status": "reset done"})
 
-# === /delete_debug: удалить test-пользователя ===
-@app.route("/delete_debug", methods=["POST"])
-def delete_debug():
-    conn = psycopg2.connect(DATABASE_URL)
-    cur = conn.cursor()
-    cur.execute("DELETE FROM users WHERE username = %s", ('debug_user',))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"status": "debug_user deleted"})
+
 
 # === Запуск ===
 if __name__ == "__main__":
