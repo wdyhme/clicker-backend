@@ -142,11 +142,13 @@ def get_top_players():
 
 
 
+from datetime import datetime, timedelta, timezone
+
 last_reset_date = None
 
 def should_reset_global_ads():
     global last_reset_date
-    now = datetime.now(timezone.utc) + timedelta(hours=3)  # GMT+3
+    now = datetime.now(timezone.utc) + timedelta(hours=3)
     today = now.strftime("%Y-%m-%d")
     if last_reset_date != today:
         last_reset_date = today
@@ -179,7 +181,7 @@ def get_global_stats():
         }
     }
 
-    reset_today = should_reset_global_ads()  # ✅ вызываем ОДИН РАЗ
+    reset_today = should_reset_global_ads()  # ✅ вызываем один раз
 
     for (data,) in rows:
         try:
@@ -193,6 +195,7 @@ def get_global_stats():
             stats["ads"]["popupTotal"] += ads.get("popupTotal", 0)
             stats["ads"]["inAppTotal"] += ads.get("inAppTotal", 0)
 
+            # ❗ today считается только если не сбрасываем
             if not reset_today:
                 stats["ads"]["interstitialToday"] += ads.get("interstitialToday", 0)
                 stats["ads"]["popupToday"] += ads.get("popupToday", 0)
@@ -202,6 +205,7 @@ def get_global_stats():
             continue
 
     return jsonify(stats)
+
 
 
 # === отладка: сброс таблицы ===
