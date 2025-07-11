@@ -99,12 +99,13 @@ def save_data():
     user_id = str(req.get("user_id"))
     data = req.get("data")
 
-    now = datetime.now(timezone.utc) + timedelta(hours=3)
-today_str = now.strftime("%Y-%m-%d")
-data["lastResetDate"] = today_str
-
     if not user_id or not data:
         return jsonify({"error": "Missing user_id or data"}), 400
+
+    # добавляем дату сброса по GMT+3
+    now = datetime.now(timezone.utc) + timedelta(hours=3)
+    today_str = now.strftime("%Y-%m-%d")
+    data["lastResetDate"] = today_str
 
     username = data.get("username", "Anon")
     conn = psycopg2.connect(DATABASE_URL)
@@ -124,6 +125,7 @@ data["lastResetDate"] = today_str
     cur.close()
     conn.close()
     return jsonify({"status": "ok"})
+
 
 # === /get_top_players: топ игроков ===
 @app.route("/get_top_players", methods=["GET"])
