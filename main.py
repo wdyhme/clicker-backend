@@ -146,6 +146,21 @@ def get_top_players():
     return jsonify(result[:100])
 
 @app.route("/get_global_stats", methods=["GET"])
+
+
+from datetime import datetime, timedelta
+
+# предполагается, что global_stats инициализирован где-то выше как глобальный словарь
+
+def check_reset_global_ads():
+    now = datetime.utcnow() + timedelta(hours=3)  # GMT+3
+    today_str = now.strftime("%Y-%m-%d")
+    
+    if global_stats.get("last_reset_date") != today_str:
+        global_stats["last_reset_date"] = today_str
+        global_stats["ads"]["interstitialToday"] = 0
+        global_stats["ads"]["popupToday"] = 0
+
 def get_global_stats():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
@@ -186,30 +201,6 @@ def get_global_stats():
     return jsonify(stats)
 
 
-@app.route("/reset_all", methods=["POST"])
-def reset_all():
-    conn = psycopg2.connect(DATABASE_URL)
-    cur = conn.cursor()
-    cur.execute("TRUNCATE TABLE users;")
-    conn.commit()
-    cur.close()
-    conn.close() 
-    return jsonify({"status": "✅ Reset complete"})
-
-
-
-
-
-
-@app.route("/delete_debug", methods=["POST"])
-def delete_debug():
-    conn = psycopg2.connect(DATABASE_URL)
-    cur = conn.cursor()
-    cur.execute("DELETE FROM users WHERE username = %s", ('debug_user',))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"status": "✅ debug_user deleted"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
