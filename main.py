@@ -198,6 +198,25 @@ def get_global_stats():
     return jsonify(stats)
 
 
+@app.route("/reset_daily_stats", methods=["POST"])
+def reset_daily_stats():
+    with db.cursor() as cur:
+        cur.execute("SELECT user_id, data FROM users")
+        users = cur.fetchall()
+
+        for user_id, data in users:
+            try:
+                data["adsWatchedToday"] = 0
+                data["bigBonusClaimed"] = False
+                if "ads_watched" in data:
+                    data["ads_watched"]["interstitialToday"] = 0
+                    data["ads_watched"]["popupToday"] = 0
+                cur.execute("UPDATE users SET data = %s WHERE user_id = %s", (json.dumps(data), user_id))
+            except Exception as e:
+                print(f"Error updating user {user_id}: {e}")
+        db.commit()
+
+    return jsonify({"status": "ok", "message": "Daily stats reset"}), 200
 
 
 # === Запуск ===
